@@ -5,6 +5,7 @@ defaults:
   - dataloader: asvspoof
   - transforms: asvspoof
   - _self_
+la_root: /kaggle/input/datasets/awsaf49/asvpoof-2019-dataset/LA/LA
 inferencer:
   device_tensors: ["data_object", "labels"]
   device: auto
