@@ -1,5 +1,6 @@
 _target_: src.model.LCNNModel
 n_class: 2
-dropout: 0.3
-pooled_size: 15
-embedding_dim: 80
+dropout: 0.5
+feature_dropout: 0.1
+pooled_size: 8
+embedding_dim: 64

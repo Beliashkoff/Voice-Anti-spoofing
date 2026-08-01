@@ -3,6 +3,10 @@ train:
     _target_: torch.nn.Sequential
     _args_:
       - _target_: src.transforms.STFT
+      - _target_: src.transforms.SpecAugment
+        freq_width: 16
+        time_width: 32
+        p: 0.7
 inference:
   data_object:
     _target_: torch.nn.Sequential

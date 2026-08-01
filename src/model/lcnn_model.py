@@ -36,7 +36,14 @@ class LinearMFM(nn.Module):
 
 
 class LCNNModel(nn.Module):
-    def __init__(self, n_class=2, dropout=0.3, pooled_size=15, embedding_dim=80):
+    def __init__(
+        self,
+        n_class=2,
+        dropout=0.5,
+        feature_dropout=0.1,
+        pooled_size=8,
+        embedding_dim=64,
+    ):
         super().__init__()
 
         self.conv1 = ConvMFM(1, 32, kernel_size=5, stride=1, padding=0)
@@ -62,6 +69,7 @@ class LCNNModel(nn.Module):
         self.bn5a = nn.BatchNorm2d(32)
         self.conv5 = ConvMFM(32, 32, kernel_size=3, padding=1)
         self.pool5 = nn.MaxPool2d(2, 2)
+        self.feature_dropout = nn.Dropout2d(feature_dropout)
 
         self.avgpool = nn.AdaptiveAvgPool2d((pooled_size, pooled_size))
 
@@ -103,6 +111,7 @@ class LCNNModel(nn.Module):
         x = self.bn5a(x)
         x = self.conv5(x)
         x = self.pool5(x)
+        x = self.feature_dropout(x)
 
         x = self.avgpool(x)
         x = x.flatten(1)
