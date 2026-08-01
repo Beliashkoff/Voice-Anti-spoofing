@@ -67,7 +67,7 @@ class Inferencer(BaseTrainer):
                 if value is not None:
                     metrics.update(met.name, value)
 
-        scores = batch["logits"][:, 1] - batch["logits"][:, 0]
+        scores = batch["logits"].squeeze(-1)
 
         for i in range(scores.shape[0]):
             rows.append((batch["utt_id"][i], scores[i].item()))

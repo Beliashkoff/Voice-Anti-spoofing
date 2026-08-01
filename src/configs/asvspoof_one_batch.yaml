@@ -5,6 +5,9 @@ defaults:
 writer:
   run_name: "lcnn_one_batch"
 
+dataloader:
+  batch_size: 16
+
 datasets:
   train:
     balanced_limit: 16

@@ -50,7 +50,7 @@ class EERMetric(BaseMetric):
         self.labels = []
 
     def __call__(self, logits: torch.Tensor, labels: torch.Tensor, **kwargs):
-        score = logits[:, 1] - logits[:, 0]
+        score = logits.squeeze(-1)
         self.scores.extend(score.detach().float().cpu().tolist())
         self.labels.extend(labels.detach().long().cpu().tolist())
         return None

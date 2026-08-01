@@ -31,5 +31,8 @@ class ExampleMetric(BaseMetric):
         Returns:
             metric (float): calculated metric.
         """
-        classes = logits.argmax(dim=-1)
+        if logits.shape[-1] == 1:
+            classes = (logits.squeeze(-1) > 0).long()
+        else:
+            classes = logits.argmax(dim=-1)
         return self.metric(classes, labels)

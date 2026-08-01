@@ -89,33 +89,20 @@ class ASVspoofDataset(BaseDataset):
         if wav.numel() == 0:
             raise ValueError(f"пустое аудио {path}")
 
+        wav = self._fixed_length(wav)
         if self.train:
-            wav = self._repeat_to_length(wav)
-            start = random.randint(0, wav.shape[1] - self.max_len)
-            wav = wav[:, start : start + self.max_len]
             if self.noise_std > 0:
                 wav = wav + torch.randn_like(wav) * self.noise_std
             return wav
+        return wav.unsqueeze(0)
 
-        return self._evaluation_segments(wav)
-
-    def _repeat_to_length(self, wav):
+    def _fixed_length(self, wav):
+        if wav.shape[1] > self.max_len:
+            return wav[:, : self.max_len]
         if wav.shape[1] < self.max_len:
-            repeats = (self.max_len + wav.shape[1] - 1) // wav.shape[1]
-            wav = wav.repeat(1, repeats)
+            pad = self.max_len - wav.shape[1]
+            return torch.nn.functional.pad(wav, (0, pad))
         return wav
-
-    def _evaluation_segments(self, wav):
-        wav = self._repeat_to_length(wav)
-        max_start = wav.shape[1] - self.max_len
-        if self.eval_segments == 1 or max_start == 0:
-            starts = [0] * self.eval_segments
-        else:
-            starts = torch.linspace(0, max_start, self.eval_segments).round().long()
-            starts = starts.tolist()
-        return torch.stack(
-            [wav[:, start : start + self.max_len] for start in starts], dim=0
-        )
 
     def __getitem__(self, ind):
         data_dict = self._index[ind]

@@ -7,23 +7,22 @@ defaults:
   - transforms: asvspoof
   - _self_
 la_root: /kaggle/input/datasets/awsaf49/asvpoof-2019-dataset/LA/LA
-balance_train: true
+balance_train: false
 optimizer:
   _target_: torch.optim.Adam
   lr: 1e-4
   betas: [0.9, 0.999]
   eps: 1e-8
-  weight_decay: 5e-4
+  weight_decay: 1e-4
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.StepLR
-  gamma: 0.5
-  step_size: 7925
+  gamma: 0.1
+  step_size: 1980
 loss_function:
   _target_: src.loss.ASVspoofLoss
-  label_smoothing: 0.1
 trainer:
   log_step: 50
-  n_epochs: 30
+  n_epochs: 100
   epoch_len: null
   device_tensors: ["data_object", "labels"]
   resume_from: null
@@ -31,8 +30,8 @@ trainer:
   override: False
   monitor: "min dev_EER"
   save_period: 5
-  early_stop: 6
+  early_stop: 12
   max_grad_norm: 2.0
   use_amp: true
   save_dir: "saved"
-  seed: 42
+  seed: 1010
