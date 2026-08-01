@@ -48,9 +48,14 @@ def get_dataloaders(config, device):
                 sample_weights, num_samples=len(sample_weights), replacement=True
             )
 
+        batch_size = config.dataloader.batch_size
+        if dataset_partition != "train":
+            batch_size = config.get("eval_batch_size", batch_size)
+
         partition_dataloader = instantiate(
             config.dataloader,
             dataset=dataset,
+            batch_size=batch_size,
             collate_fn=collate_fn,
             drop_last=(dataset_partition == "train"),
             shuffle=(dataset_partition == "train" and sampler is None),

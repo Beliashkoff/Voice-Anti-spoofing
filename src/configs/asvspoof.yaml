@@ -8,6 +8,7 @@ defaults:
   - _self_
 la_root: /kaggle/input/datasets/awsaf49/asvpoof-2019-dataset/LA/LA
 balance_train: false
+eval_batch_size: 64
 optimizer:
   _target_: torch.optim.Adam
   lr: 1e-4
@@ -32,6 +33,6 @@ trainer:
   save_period: 5
   early_stop: 12
   max_grad_norm: 2.0
-  use_amp: true
+  use_amp: false
   save_dir: "saved"
   seed: 1010
