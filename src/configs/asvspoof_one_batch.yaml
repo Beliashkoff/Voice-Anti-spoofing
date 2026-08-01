@@ -1,0 +1,28 @@
+defaults:
+  - asvspoof
+  - _self_
+
+writer:
+  run_name: "lcnn_one_batch"
+
+datasets:
+  train:
+    balanced_limit: 16
+    noise_std: 0.0
+    train: false
+    eval_segments: 1
+  dev:
+    data_dir: ${la_root}/ASVspoof2019_LA_train
+    protocol_path: ${la_root}/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt
+    balanced_limit: 16
+    eval_segments: 1
+
+trainer:
+  n_epochs: 100
+  epoch_len: 1
+  early_stop: 100
+  save_period: 25
+
+lr_scheduler:
+  step_size: 50
+  gamma: 0.5

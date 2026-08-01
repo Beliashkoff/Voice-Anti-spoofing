@@ -62,6 +62,10 @@ class BaseTrainer:
 
         self.device = device
         self.skip_oom = skip_oom
+        self.use_amp = bool(self.cfg_trainer.get("use_amp", False)) and str(
+            device
+        ).startswith("cuda")
+        self.grad_scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
 
         self.logger = logger
         self.log_step = config.trainer.get("log_step", 50)
@@ -273,6 +277,10 @@ class BaseTrainer:
                     batch,
                     metrics=self.evaluation_metrics,
                 )
+            for metric in self.metrics["inference"]:
+                if getattr(metric, "is_epoch_metric", False):
+                    self.evaluation_metrics.update(metric.name, metric.compute())
+
             self.writer.set_step(epoch * self.epoch_len, part)
             self._log_scalars(self.evaluation_metrics)
             self._log_batch(
@@ -304,10 +312,15 @@ class BaseTrainer:
             try:
                 # check whether model performance improved or not,
                 # according to specified metric(mnt_metric)
+                metric_value = logs[self.mnt_metric]
+                if not isinstance(metric_value, (int, float)) or not torch.isfinite(
+                    torch.as_tensor(metric_value)
+                ):
+                    raise ValueError(f"неверная метрика {self.mnt_metric}")
                 if self.mnt_mode == "min":
-                    improved = logs[self.mnt_metric] <= self.mnt_best
+                    improved = metric_value < self.mnt_best
                 elif self.mnt_mode == "max":
-                    improved = logs[self.mnt_metric] >= self.mnt_best
+                    improved = metric_value > self.mnt_best
                 else:
                     improved = False
             except KeyError:
@@ -469,6 +482,7 @@ class BaseTrainer:
             "state_dict": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "lr_scheduler": self.lr_scheduler.state_dict(),
+            "grad_scaler": self.grad_scaler.state_dict(),
             "monitor_best": self.mnt_best,
             "config": self.config,
         }
@@ -506,8 +520,8 @@ class BaseTrainer:
         # load architecture params from checkpoint.
         if checkpoint["config"]["model"] != self.config["model"]:
             self.logger.warning(
-                "Warning: Architecture configuration given in the config file is different from that "
-                "of the checkpoint. This may yield an exception when state_dict is loaded."
+                "Warning: Architecture configuration in the config file differs "
+                "from the checkpoint. Loading state_dict may fail."
             )
         self.model.load_state_dict(checkpoint["state_dict"])
 
@@ -524,6 +538,8 @@ class BaseTrainer:
         else:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
             self.lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            if checkpoint.get("grad_scaler") is not None:
+                self.grad_scaler.load_state_dict(checkpoint["grad_scaler"])
 
         self.logger.info(
             f"Checkpoint loaded. Resume training from epoch {self.start_epoch}"
@@ -548,6 +564,15 @@ class BaseTrainer:
         checkpoint = torch.load(pretrained_path, self.device)
 
         if checkpoint.get("state_dict") is not None:
+            checkpoint_config = checkpoint.get("config")
+            if checkpoint_config is not None:
+                for section in ("model", "transforms"):
+                    if (
+                        section in checkpoint_config
+                        and section in self.config
+                        and checkpoint_config[section] != self.config[section]
+                    ):
+                        raise ValueError(f"конфиг {section} не совпадает")
             self.model.load_state_dict(checkpoint["state_dict"])
         else:
             self.model.load_state_dict(checkpoint)

@@ -36,10 +36,10 @@ class LinearMFM(nn.Module):
 
 
 class LCNNModel(nn.Module):
-    def __init__(self, n_class=2, dropout=0.75):
+    def __init__(self, n_class=2, dropout=0.3, pooled_size=15, embedding_dim=80):
         super().__init__()
 
-        self.conv1 = ConvMFM(1, 32, kernel_size=5, stride=1, padding=2)
+        self.conv1 = ConvMFM(1, 32, kernel_size=5, stride=1, padding=0)
         self.pool1 = nn.MaxPool2d(2, 2)
 
         self.conv2a = ConvMFM(32, 32, kernel_size=1)
@@ -63,15 +63,22 @@ class LCNNModel(nn.Module):
         self.conv5 = ConvMFM(32, 32, kernel_size=3, padding=1)
         self.pool5 = nn.MaxPool2d(2, 2)
 
-        self.avgpool = nn.AdaptiveAvgPool2d((4, 4))
+        self.avgpool = nn.AdaptiveAvgPool2d((pooled_size, pooled_size))
 
-        self.fc1 = LinearMFM(32 * 4 * 4, 160)
+        self.fc1 = LinearMFM(32 * pooled_size * pooled_size, embedding_dim)
         self.dropout = nn.Dropout(dropout)
-        self.bn6 = nn.BatchNorm1d(160)
-        self.fc2 = nn.Linear(160, n_class)
+        self.bn6 = nn.BatchNorm1d(embedding_dim)
+        self.fc2 = nn.Linear(embedding_dim, n_class)
 
     def forward(self, data_object, **batch):
         x = data_object
+        batch_size = x.shape[0]
+        segment_count = 1
+        if x.ndim == 5:
+            segment_count = x.shape[1]
+            x = x.flatten(0, 1)
+        elif x.ndim != 4:
+            raise ValueError(f"неверная форма входа {x.shape}")
 
         x = self.conv1(x)
         x = self.pool1(x)
@@ -105,7 +112,9 @@ class LCNNModel(nn.Module):
         x = self.bn6(x)
         x = self.fc2(x)
 
-        return {"logits": x}
+        segment_logits = x.view(batch_size, segment_count, -1)
+        logits = segment_logits.mean(dim=1)
+        return {"logits": logits, "segment_logits": segment_logits}
 
     def __str__(self):
         all_parameters = sum([p.numel() for p in self.parameters()])

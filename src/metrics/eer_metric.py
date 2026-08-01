@@ -39,6 +39,8 @@ def compute_eer(bonafide_scores, other_scores):
 
 
 class EERMetric(BaseMetric):
+    is_epoch_metric = True
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.reset()
@@ -48,20 +50,23 @@ class EERMetric(BaseMetric):
         self.labels = []
 
     def __call__(self, logits: torch.Tensor, labels: torch.Tensor, **kwargs):
-        probs = torch.softmax(logits, dim=-1)
-        score = probs[:, 1]
+        score = logits[:, 1] - logits[:, 0]
+        self.scores.extend(score.detach().float().cpu().tolist())
+        self.labels.extend(labels.detach().long().cpu().tolist())
+        return None
 
-        self.scores.extend(score.detach().cpu().tolist())
-        self.labels.extend(labels.detach().cpu().tolist())
+    def compute(self):
+        scores = np.asarray(self.scores, dtype=np.float64)
+        labels = np.asarray(self.labels, dtype=np.int64)
+        if scores.size == 0:
+            raise RuntimeError("нет скоров")
+        if not np.isfinite(scores).all():
+            raise ValueError("неверные скоры")
 
-        scores = np.array(self.scores)
-        labels_arr = np.array(self.labels)
-
-        bona = scores[labels_arr == 1]
-        spoof = scores[labels_arr == 0]
-
-        if len(bona) == 0 or len(spoof) == 0:
-            return 0.0
+        bona = scores[labels == 1]
+        spoof = scores[labels == 0]
+        if bona.size == 0 or spoof.size == 0:
+            raise RuntimeError("нет одного из классов")
 
         eer, _ = compute_eer(bona, spoof)
-        return eer * 100
+        return float(eer * 100.0)

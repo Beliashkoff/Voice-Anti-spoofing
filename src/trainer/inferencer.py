@@ -63,10 +63,11 @@ class Inferencer(BaseTrainer):
 
         if metrics is not None:
             for met in self.metrics["inference"]:
-                metrics.update(met.name, met(**batch))
+                value = met(**batch)
+                if value is not None:
+                    metrics.update(met.name, value)
 
-        probs = torch.softmax(batch["logits"], dim=-1)
-        scores = probs[:, 1]
+        scores = batch["logits"][:, 1] - batch["logits"][:, 0]
 
         for i in range(scores.shape[0]):
             rows.append((batch["utt_id"][i], scores[i].item()))
@@ -104,11 +105,17 @@ class Inferencer(BaseTrainer):
 
         if self.save_path is not None:
             csv_path = self.save_path / part / "scores.csv"
+            if len({utt_id for utt_id, _ in rows}) != len(rows):
+                raise RuntimeError("повтор id")
             with open(csv_path, "w", newline="") as f:
                 writer = csv.writer(f)
                 for utt_id, score in rows:
                     writer.writerow([utt_id, score])
 
         if self.evaluation_metrics is not None:
-            return self.evaluation_metrics.result()
+            result = self.evaluation_metrics.result()
+            for met in self.metrics["inference"]:
+                if getattr(met, "is_epoch_metric", False):
+                    result[met.name] = met.compute()
+            return result
         return {}

@@ -6,9 +6,10 @@ defaults:
   - transforms: asvspoof
   - _self_
 la_root: /kaggle/input/datasets/awsaf49/asvpoof-2019-dataset/LA/LA
+balance_train: false
 inferencer:
   device_tensors: ["data_object", "labels"]
   device: auto
   save_path: "asvspoof_eval"
-  seed: 1
+  seed: 42
   from_pretrained: "saved/model_best.pth"

@@ -1,3 +1,5 @@
+import torch
+
 from src.metrics.tracker import MetricTracker
 from src.trainer.base_trainer import BaseTrainer
 
@@ -12,16 +14,18 @@ class Trainer(BaseTrainer):
             metric_funcs = self.metrics["train"]
             self.optimizer.zero_grad()
 
-        outputs = self.model(**batch)
-        batch.update(outputs)
-
-        all_losses = self.criterion(**batch)
-        batch.update(all_losses)
+        with torch.cuda.amp.autocast(enabled=self.use_amp):
+            outputs = self.model(**batch)
+            batch.update(outputs)
+            all_losses = self.criterion(**batch)
+            batch.update(all_losses)
 
         if self.is_train:
-            batch["loss"].backward()
+            self.grad_scaler.scale(batch["loss"]).backward()
+            self.grad_scaler.unscale_(self.optimizer)
             self._clip_grad_norm()
-            self.optimizer.step()
+            self.grad_scaler.step(self.optimizer)
+            self.grad_scaler.update()
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
 
@@ -29,7 +33,9 @@ class Trainer(BaseTrainer):
             metrics.update(loss_name, batch[loss_name].item())
 
         for met in metric_funcs:
-            metrics.update(met.name, met(**batch))
+            value = met(**batch)
+            if value is not None:
+                metrics.update(met.name, value)
         return batch
 
     def _evaluation_epoch(self, epoch, part, dataloader):
